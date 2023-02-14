@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "997033230903",
+    "project_id": "messageme-a3dd7",
+    "storage_bucket": "messageme-a3dd7.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:997033230903:android:4b64ea329fe750a682b5b2",
+        "android_client_info": {
+          "package_name": "com.example.chat_mobile_app_0"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "997033230903-p3nr8bpahqrgb48v34r1gl7am92on2tc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDicPX39ibA8ss6WjyOJlJbXXYN-eRz9Nw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "997033230903-p3nr8bpahqrgb48v34r1gl7am92on2tc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
