@@ -1,11 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:chat_mobile_app_0/screens/notification_screen.dart';
 import 'package:chat_mobile_app_0/screens/welcome_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:chat_bubbles/chat_bubbles.dart';
+import 'package:flutter/services.dart';
+import 'package:googleapis_auth/auth_io.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 class Chat_Screen extends StatefulWidget {
   static const String screenRoute = 'chat_screen';
@@ -25,6 +31,8 @@ class _Chat_ScreenState extends State<Chat_Screen> {
   late bool isSender;
   Timer? _timer;
   String? typingId;
+  List<RemoteNotification?> notifications = [];
+  String token = '';
 
   void getCurrentUser() {
     try {
@@ -39,19 +47,56 @@ class _Chat_ScreenState extends State<Chat_Screen> {
 
   void getNotification() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Message data: ${message.data}');
-
       if (message.notification != null) {
-        print(
-            'Message also contained a notification: ${message.notification!.title}');
+        setState(() {
+          notifications.add(message.notification);
+        });
       }
     });
+  }
+
+  Future<void> sendNotification(String title, String body) async {
+    http.Response response = await http.post(
+        Uri.parse(
+            'https://fcm.googleapis.com/v1/projects/messageme-a3dd7/messages:send'),
+        headers: {
+          HttpHeaders.contentTypeHeader: 'application/json',
+          HttpHeaders.authorizationHeader: 'Bearer $token'
+        },
+        body: jsonEncode({
+          "message": {
+            "topic": "primitive",
+            "notification": {"title": title, "body": body},
+          }
+        }));
+  }
+
+  Future<AccessToken> getAccessToken() async {
+    final serviceAccount = await rootBundle.loadString(
+        'assets/messageme-a3dd7-firebase-adminsdk-hcfai-bfd7fc289b.json');
+    final data = await jsonDecode(serviceAccount);
+    final accountCredentials = ServiceAccountCredentials.fromJson({
+      "private_key_id": data['private_key_id'],
+      "private_key": data['private_key'],
+      "client_email": data['client_email'],
+      "client_id": data['client_id'],
+      "type": data['type']
+    });
+    final scopes = ["https://www.googleapis.com/auth/firebase.messaging"];
+    final AuthClient authClient = await clientViaServiceAccount(
+      accountCredentials,
+      scopes,
+    )
+      ..close();
+
+    return authClient.credentials.accessToken;
   }
 
   @override
   void initState() {
     getCurrentUser();
     getNotification();
+    getAccessToken().then((value) => token = value.data);
     super.initState();
   }
 
@@ -79,12 +124,46 @@ class _Chat_ScreenState extends State<Chat_Screen> {
           ],
         ),
         actions: [
-          Container(
-            alignment: AlignmentDirectional.center,
-              child: Text(
-            '${signInUser.email}',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.blue[800]),
-          )),
+          GestureDetector(
+            onTap: () {
+              Navigator.pushReplacementNamed(
+                      context, Notification_Screen.screenRoute,
+                      arguments: notifications)
+                  .then(
+                (value) => setState(() {
+                  notifications.clear();
+                }),
+              );
+            },
+            child: Stack(
+              children: [
+                Container(
+                  alignment: Alignment.center,
+                  padding: EdgeInsets.only(left: 10),
+                  child: Icon(
+                    Icons.notifications,
+                    color: Colors.blue[800],
+                    size: 25,
+                  ),
+                ),
+                notifications.isNotEmpty
+                    ? Container(
+                        margin:
+                            EdgeInsets.all(notifications.length > 9 ? 5 : 8.5),
+                        decoration: const BoxDecoration(
+                            color: Colors.red, shape: BoxShape.circle),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        child: Text(
+                          '${notifications.isEmpty ? '' : notifications.length > 9 ? '+9' : notifications.length}',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      )
+                    : Container()
+              ],
+            ),
+          ),
           IconButton(
             onPressed: () {
               _auth.signOut();
@@ -115,8 +194,8 @@ class _Chat_ScreenState extends State<Chat_Screen> {
                     return Expanded(
                       child: ListView(
                         reverse: true,
-                        padding:
-                            EdgeInsets.only(right: 12, left: 12, bottom: 5),
+                        padding: const EdgeInsets.only(
+                            right: 12, left: 12, bottom: 5),
                         children: [
                           for (var item in messages) ...{
                             if (signInUser.email == item['sender']) ...{
@@ -139,7 +218,9 @@ class _Chat_ScreenState extends State<Chat_Screen> {
                                   const Text(
                                     '    me',
                                     style: TextStyle(
-                                        fontSize: 14, color: Colors.grey),
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -161,7 +242,7 @@ class _Chat_ScreenState extends State<Chat_Screen> {
                                 children: [
                                   Text(
                                     '${item['sender']}    ',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey,
                                     ),
@@ -213,12 +294,12 @@ class _Chat_ScreenState extends State<Chat_Screen> {
                         itemBuilder: (context, index) {
                           if (users[index]['user'] != signInUser.email) {
                             return Container(
-                                padding: EdgeInsets.only(left: 15),
+                                padding: const EdgeInsets.only(left: 15),
                                 color: Colors.yellow[800],
                                 child: Text(
                                     '${users[index]['user']}    is typing'));
                           }
-                          return SizedBox();
+                          return const SizedBox();
                         });
                   }
                   return const SizedBox();
@@ -241,7 +322,7 @@ class _Chat_ScreenState extends State<Chat_Screen> {
                       onChanged: (value) async {
                         if (_timer?.isActive ?? false) _timer?.cancel();
                         _timer =
-                            Timer(const Duration(milliseconds: 500), () async {
+                            Timer(const Duration(milliseconds: 520), () async {
                           if (value.isNotEmpty) {
                             if (typingId == null) {
                               final ref = await _firestore
@@ -275,21 +356,24 @@ class _Chat_ScreenState extends State<Chat_Screen> {
                             'time': DateTime.now()
                           });
                         }
+                        sendNotification('${signInUser.email}', '${controller.text}');
                         controller.text = '';
-                        if (typingId != null) {
-                          _firestore
-                              .collection('typing_users')
-                              .doc(typingId)
-                              .delete();
-                          typingId = null;
-                        }
+                        Future.delayed(const Duration(seconds: 1), () {
+                          if (typingId != null) {
+                            _firestore
+                                .collection('user_typing')
+                                .doc(typingId)
+                                .delete();
+                            typingId = null;
+                          }
+                        });
                       },
                       icon: Icon(
                         Icons.send_outlined,
                         color: Colors.blue[800],
                         size: 30,
                       )),
-                  SizedBox(
+                  const SizedBox(
                     width: 13,
                   )
                 ],

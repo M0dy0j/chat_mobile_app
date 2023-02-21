@@ -1,4 +1,5 @@
 import 'package:chat_mobile_app_0/screens/chat_screen.dart';
+import 'package:chat_mobile_app_0/screens/notification_screen.dart';
 import 'package:chat_mobile_app_0/screens/registration_screen.dart';
 import 'package:chat_mobile_app_0/screens/signin_screen.dart';
 import 'package:chat_mobile_app_0/screens/welcome_screen.dart';
@@ -12,6 +13,7 @@ import 'firebase_options.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 }
+String? fcmToken;
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +32,7 @@ void main() async{
     sound: true,
   );
 
+  await messaging.subscribeToTopic('primitive');
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const MyApp());
 }
@@ -40,7 +43,6 @@ class MyApp extends StatelessWidget {
 
   void getFCM() async {
     final fcmToken = await FirebaseMessaging.instance.getToken();
-    print('FCM token $fcmToken');
   }
 
   @override
@@ -57,6 +59,7 @@ class MyApp extends StatelessWidget {
         Signin_Screen.screenRoute : (context) => Signin_Screen(),
         Registration_Screen.screenRoute : (context) => Registration_Screen(),
         Chat_Screen.screenRoute : (context) => Chat_Screen(),
+        Notification_Screen.screenRoute : (context) => Notification_Screen(),
       },
       initialRoute: Welcome_Screen.screenRoute,
     );
